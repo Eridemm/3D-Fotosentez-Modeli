@@ -47,8 +47,19 @@ class ThreeJSErrorBoundary extends React.Component<
 
 const Canvas = dynamic(
   async () => {
-    const { Canvas: CanvasComponent } = await import("@react-three/fiber")
-    return CanvasComponent
+    // Three.js ve fiber'ı doğru sırada import et
+    try {
+      const fiber = await import("@react-three/fiber")
+      const drei = await import("@react-three/drei")
+
+      // Three.js'ın tam yüklenmiş olduğundan emin ol
+      if (!fiber.Canvas) throw new Error("Canvas component not loaded")
+
+      return { default: fiber.Canvas }
+    } catch (error) {
+      console.error("[v0] Failed to load Canvas:", error)
+      throw error
+    }
   },
   {
     ssr: false,
@@ -105,25 +116,50 @@ export default function PhotosynthesisVisualization() {
       const loadComponents = async () => {
         return new Promise<void>((resolve) => {
           let attempts = 0
-          const maxAttempts = 100
+          const maxAttempts = 200
+          let hasResolved = false
 
           const checkComponents = () => {
+            if (hasResolved) return
+
             if (typeof window !== "undefined") {
-              console.log("[v0] Window is available, setting components loaded")
-              setComponentsLoaded(true)
-              setCanvasReady(true)
-              resolve()
+              try {
+                require("@react-three/fiber")
+                require("@react-three/drei")
+                console.log("[v0] Three.js modules verified, setting components loaded")
+                setComponentsLoaded(true)
+                // Canvas ready delay for extra safety
+                setTimeout(() => {
+                  if (!hasResolved) {
+                    setCanvasReady(true)
+                    hasResolved = true
+                    resolve()
+                  }
+                }, 300)
+              } catch (e) {
+                // Modules not ready yet
+                if (attempts < maxAttempts) {
+                  attempts++
+                  setTimeout(checkComponents, 100)
+                } else {
+                  console.error("[v0] Failed to load modules after retries")
+                  setHasError(true)
+                  hasResolved = true
+                  resolve()
+                }
+              }
             } else if (attempts < maxAttempts) {
               attempts++
-              setTimeout(checkComponents, 50)
+              setTimeout(checkComponents, 100)
             } else {
               console.error("[v0] Failed to load components after retries")
               setHasError(true)
+              hasResolved = true
               resolve()
             }
           }
 
-          setTimeout(checkComponents, 200)
+          setTimeout(checkComponents, 300)
         })
       }
 
@@ -501,10 +537,14 @@ export default function PhotosynthesisVisualization() {
                 gl={{
                   antialias: true,
                   alpha: true,
+                  powerPreference: "high-performance",
+                  failIfMajorPerformanceCaveat: false,
                 }}
-                onCreated={() => console.log("[v0] Canvas created successfully")}
-                onError={(error) => {
-                  console.error("[v0] Canvas error:", error)
+                onCreated={(state) => {
+                  console.log("[v0] Canvas created with renderer:", state.gl.constructor.name)
+                }}
+                onError={(error: any) => {
+                  console.error("[v0] Canvas render error:", error)
                   setHasError(true)
                 }}
               >
@@ -529,14 +569,7 @@ export default function PhotosynthesisVisualization() {
                   minPolarAngle={0}
                 />
               </Canvas>
-            ) : (
-              <div className="w-full h-screen bg-gradient-to-b from-sky-100 to-green-100 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-                  <p className="text-green-800 font-semibold">3D Bileşenler Yükleniyor...</p>
-                </div>
-              </div>
-            )}
+            ) : null}
           </Suspense>
         </div>
 
