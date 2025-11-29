@@ -94,6 +94,7 @@ export default function PhotosynthesisVisualization() {
   const [isClient, setIsClient] = useState(false)
   const [componentsLoaded, setComponentsLoaded] = useState(false)
   const [hasError, setHasError] = useState(false)
+  const [canvasReady, setCanvasReady] = useState(false)
 
   React.useEffect(() => {
     console.log("[v0] PhotosynthesisVisualization mounted")
@@ -101,24 +102,32 @@ export default function PhotosynthesisVisualization() {
     try {
       setIsClient(true)
 
-      let attempts = 0
-      const maxAttempts = 50
+      const loadComponents = async () => {
+        return new Promise<void>((resolve) => {
+          let attempts = 0
+          const maxAttempts = 100
 
-      const checkComponents = () => {
-        if (typeof window !== "undefined") {
-          console.log("[v0] Window is available, setting components loaded")
-          setComponentsLoaded(true)
-        } else if (attempts < maxAttempts) {
-          attempts++
-          setTimeout(checkComponents, 50)
-        } else {
-          console.error("[v0] Failed to load components after retries")
-          setHasError(true)
-        }
+          const checkComponents = () => {
+            if (typeof window !== "undefined") {
+              console.log("[v0] Window is available, setting components loaded")
+              setComponentsLoaded(true)
+              setCanvasReady(true)
+              resolve()
+            } else if (attempts < maxAttempts) {
+              attempts++
+              setTimeout(checkComponents, 50)
+            } else {
+              console.error("[v0] Failed to load components after retries")
+              setHasError(true)
+              resolve()
+            }
+          }
+
+          setTimeout(checkComponents, 200)
+        })
       }
 
-      const timer = setTimeout(checkComponents, 100)
-      return () => clearTimeout(timer)
+      loadComponents()
     } catch (error) {
       console.error("[v0] Error in useEffect:", error)
       setHasError(true)
@@ -188,8 +197,15 @@ export default function PhotosynthesisVisualization() {
     )
   }
 
-  if (!isClient || !componentsLoaded) {
-    console.log("[v0] Still loading - isClient:", isClient, "componentsLoaded:", componentsLoaded)
+  if (!isClient || !componentsLoaded || !canvasReady) {
+    console.log(
+      "[v0] Still loading - isClient:",
+      isClient,
+      "componentsLoaded:",
+      componentsLoaded,
+      "canvasReady:",
+      canvasReady,
+    )
     return (
       <div className="w-full h-screen bg-gradient-to-b from-sky-100 to-green-100 flex items-center justify-center">
         <div className="text-center">
