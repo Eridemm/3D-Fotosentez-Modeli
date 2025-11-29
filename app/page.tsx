@@ -1,5 +1,5 @@
-import ClientWrapper from "@/components/photosynthesis-client-wrapper";
+import PhotosynthesisClientWrapper from "@/components/photosynthesis-client-wrapper"
 
-export default function Page() {
-  return <ClientWrapper />;
+export default function Home() {
+  return <PhotosynthesisClientWrapper />
 }
