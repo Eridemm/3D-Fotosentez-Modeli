@@ -45,21 +45,45 @@ class ThreeJSErrorBoundary extends React.Component<
   }
 }
 
-// Dynamic imports for Three.js components with better error handling
-const Canvas = dynamic(() => import("@react-three/fiber").then((mod) => ({ default: mod.Canvas })), {
-  ssr: false,
-  loading: () => <div>Canvas yükleniyor...</div>,
-})
+const Canvas = dynamic(
+  async () => {
+    const { Canvas: CanvasComponent } = await import("@react-three/fiber")
+    return CanvasComponent
+  },
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-screen bg-gradient-to-b from-sky-100 to-green-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+          <p className="text-green-800 font-semibold">Canvas Yükleniyor...</p>
+        </div>
+      </div>
+    ),
+  },
+)
 
-const OrbitControls = dynamic(() => import("@react-three/drei").then((mod) => ({ default: mod.OrbitControls })), {
-  ssr: false,
-  loading: () => null,
-})
+const OrbitControls = dynamic(
+  async () => {
+    const { OrbitControls: ControlsComponent } = await import("@react-three/drei")
+    return ControlsComponent
+  },
+  {
+    ssr: false,
+    loading: () => null,
+  },
+)
 
-const Environment = dynamic(() => import("@react-three/drei").then((mod) => ({ default: mod.Environment })), {
-  ssr: false,
-  loading: () => null,
-})
+const Environment = dynamic(
+  async () => {
+    const { Environment: EnvironmentComponent } = await import("@react-three/drei")
+    return EnvironmentComponent
+  },
+  {
+    ssr: false,
+    loading: () => null,
+  },
+)
 
 const PhotosynthesisModel = dynamic(() => import("@/components/photosynthesis-model"), {
   ssr: false,
@@ -77,10 +101,19 @@ export default function PhotosynthesisVisualization() {
     try {
       setIsClient(true)
 
+      let attempts = 0
+      const maxAttempts = 50
+
       const checkComponents = () => {
         if (typeof window !== "undefined") {
           console.log("[v0] Window is available, setting components loaded")
           setComponentsLoaded(true)
+        } else if (attempts < maxAttempts) {
+          attempts++
+          setTimeout(checkComponents, 50)
+        } else {
+          console.error("[v0] Failed to load components after retries")
+          setHasError(true)
         }
       }
 
